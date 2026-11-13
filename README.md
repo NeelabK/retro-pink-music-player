@@ -2,6 +2,8 @@
 
 A retro iPod-like music player for your phone. It runs in the browser, installs to your home screen like an app, and plays MP3s you add from your own device. 
 
+**[Try it here](https://neelabk.github.io/retro-pink-music-player/)** – open the link on your phone.
+
 No music is included. The screenshots show it with a personal library loaded.
 
 <p>
