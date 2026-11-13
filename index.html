@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mini Player">
+<meta name="theme-color" content="#e96fa8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<style>
+:root { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); box-sizing: border-box; background: #e96fa8; }
+body { margin: 0; font: 14px system-ui, sans-serif; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<title>Pink Mini Player</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&display=swap">
+<style>
+/* Layout: the whole page is the anodised pink body; an LCD sits on top, a click wheel below. Single look by design. */
+:root {
+  --pink: #e96fa8;
+  --pink-hi: #f493c0;
+  --pink-lo: #cf4f8c;
+  --bezel: #8d3a63;
+  --lcd: #c9d7e6;
+  --lcd-dim: #a9b0a2;
+  --ink: #1a2462;
+  --wheel: #fdfdfd;
+  --wheel-shade: #e4e2e6;
+  --label: #e77fb2;
+  --font-lcd: "Pixelify Sans", "Chicago", "Geneva", "Verdana", sans-serif;
+  --font-wheel: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, rgba(0,0,0,0) 1px 3px),
+    linear-gradient(90deg, var(--pink-lo) 0%, var(--pink) 7%, var(--pink-hi) 45%, var(--pink) 90%, var(--pink-lo) 100%);
+  color: var(--ink);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+.device {
+  height: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;
+  gap: 16px;
+}
+
+/* ---------- LCD ---------- */
+.lcd-frame {
+  width: 100%;
+  max-width: 340px;
+  aspect-ratio: 4 / 3;
+  max-height: 42%;
+  flex: 0 1 auto;
+  min-height: 190px;
+  box-sizing: border-box;
+  padding: 5px;
+  border-radius: 12px;
+  background: var(--bezel);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.35);
+}
+.lcd {
+  position: relative;
+  height: 100%;
+  border-radius: 7px;
+  background: var(--lcd);
+  color: var(--ink);
+  font-family: var(--font-lcd);
+  font-weight: 700;
+  font-size: clamp(17px, 5.3vw, 21px);
+  line-height: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: inset 0 0 14px rgba(26,36,98,.22);
+  transition: background .25s;
+}
+.lcd.dim { background: var(--lcd-dim); }
+.lcd { touch-action: none; }
+.bar {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 34px 1fr 34px;
+  align-items: center;
+  padding: 5px 8px 4px;
+  border-bottom: 2px solid var(--ink);
+}
+.bar .ttl { text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.bar svg { display: block; fill: var(--ink); }
+.batt { justify-self: end; width: 28px; height: 13px; border: 2px solid var(--ink); border-radius: 2px; position: relative; box-sizing: border-box; padding: 1px; }
+.batt::after { content: ""; position: absolute; right: -5px; top: 2px; width: 3px; height: 5px; background: var(--ink); }
+.batt i { display: block; height: 100%; width: 85%; background: var(--ink); }
+.rows { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.row {
+  flex: 1 1 0; min-height: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 14px 0 8px;
+  cursor: pointer;
+}
+.row .lbl { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .val { flex: 0 0 auto; }
+.row.sel { background: var(--ink); color: var(--lcd); }
+.lcd.dim .row.sel { color: var(--lcd-dim); }
+.row.blank { cursor: default; }
+.scroll { position: absolute; right: 2px; top: 2px; bottom: 2px; width: 6px; border: 1px solid var(--ink); box-sizing: border-box; }
+.scroll i { position: absolute; left: 0; right: 0; background: var(--ink); }
+.hint { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 10px; padding: 0 14px; font-weight: 500; line-height: 1.2; }
+.hint b { font-weight: 700; }
+
+.now { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 6px 12px 8px; text-align: center; }
+.now .count { text-align: left; font-weight: 500; font-size: .8em; }
+.now .t, .now .a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.now .a { font-weight: 500; }
+.prog { height: 12px; border: 2px solid var(--ink); box-sizing: border-box; padding: 1px; }
+.prog i { display: block; height: 100%; background: var(--ink); width: 0; }
+.times { display: flex; justify-content: space-between; font-weight: 500; font-size: .8em; font-variant-numeric: tabular-nums; }
+
+.toast {
+  position: absolute; left: 10%; right: 10%; top: 34%;
+  background: var(--lcd); border: 2px solid var(--ink);
+  padding: 10px 8px; text-align: center; line-height: 1.2;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+/* ---------- Click wheel ---------- */
+.wheel {
+  --d: min(300px, 80vw, 46vh);
+  width: var(--d); height: var(--d);
+  flex: 0 0 auto;
+  position: relative;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, var(--wheel) 55%, var(--wheel-shade) 100%);
+  box-shadow: 0 1px 2px rgba(120,30,75,.5), inset 0 -2px 5px rgba(0,0,0,.06);
+  touch-action: none;
+  cursor: grab;
+}
+.wheel button {
+  position: absolute;
+  border: 0; background: none; padding: 0; margin: 0;
+  color: var(--label);
+  font: 700 calc(var(--d) * .058) / 1 var(--font-wheel);
+  letter-spacing: .06em;
+  width: 30%; height: 24%;
+  display: grid; place-items: center;
+  cursor: pointer;
+  touch-action: none;
+  border-radius: 12px;
+}
+.wheel button svg { width: calc(var(--d) * .09); height: calc(var(--d) * .06); fill: currentColor; display: block; }
+.wheel button:focus-visible { outline: 2px solid var(--pink-lo); outline-offset: -4px; }
+.wheel button:active { color: var(--pink-lo); }
+.b-menu { top: 2%; left: 35%; }
+.b-play { bottom: 2%; left: 35%; }
+.b-prev { left: 2%; top: 38%; }
+.b-next { right: 2%; top: 38%; }
+.wheel .b-ok {
+  width: 34%; height: 34%; left: 33%; top: 33%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 30%, #ffffff 30%, #ececef 100%);
+  box-shadow: 0 0 0 1px #d2d0d6, inset 0 -2px 4px rgba(0,0,0,.05);
+}
+.wheel .b-ok:active { background: #e9e8ec; }
+@media (prefers-reduced-motion: reduce) { .lcd { transition: none; } }
+</style>
+
+<div class="device">
+  <div class="lcd-frame">
+    <div class="lcd" id="lcd" aria-live="polite"></div>
+  </div>
+
+  <div class="wheel" id="wheel">
+    <button class="b-menu" id="btn-menu" type="button" aria-label="Menu / back">MENU</button>
+    <button class="b-prev" id="btn-prev" type="button" aria-label="Previous song">
+      <svg viewBox="0 0 30 20"><rect x="1" y="2" width="3.5" height="16"/><path d="M17 2v16L5 10zM29 2v16L17 10z"/></svg>
+    </button>
+    <button class="b-next" id="btn-next" type="button" aria-label="Next song">
+      <svg viewBox="0 0 30 20"><path d="M1 2v16l12-8zM13 2v16l12-8z"/><rect x="25.5" y="2" width="3.5" height="16"/></svg>
+    </button>
+    <button class="b-play" id="btn-play" type="button" aria-label="Play or pause">
+      <svg viewBox="0 0 30 20"><path d="M3 2v16l13-8z"/><rect x="19" y="2" width="3.5" height="16"/><rect x="25" y="2" width="3.5" height="16"/></svg>
+    </button>
+    <button class="b-ok" id="btn-ok" type="button" aria-label="Select"></button>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept="audio/*,.mp3,.m4a,.wav,.aac" multiple hidden>
+<audio id="audio" preload="auto"></audio>
+
+<script>
+(function () {
+  "use strict";
+  var VIS = 6;
+  var lcd = document.getElementById("lcd");
+  var audio = document.getElementById("audio");
+  var fileInput = document.getElementById("file-input");
+
+  /* ---------- settings (per-device convenience) ---------- */
+  var S = { shuffle: false, repeat: "All", clicker: false, light: true };
+  try { Object.assign(S, JSON.parse(localStorage.getItem("pmp-settings") || "{}")); } catch (e) {}
+  function saveS() { try { localStorage.setItem("pmp-settings", JSON.stringify(S)); } catch (e) {} }
+
+  /* ---------- song library (IndexedDB on this device) ---------- */
+  // Songs published with the page: available on every device that opens it.
+  var BUILTIN = [];   // no music is bundled; add your own with Add Songs
+  function builtins() {
+    var hid = S.hidden || [];
+    return BUILTIN.filter(function (s) { return hid.indexOf(s.id) < 0; });
+  }
+  var songs = builtins();   // {id,title,artist,album,blob|src}
+  sortSongs();
+  var db = null, tempId = -1, libraryReady = false;
+
+  function openDB() {
+    return new Promise(function (res, rej) {
+      var rq;
+      try { rq = indexedDB.open("pink-mini-player", 1); } catch (e) { return rej(e); }
+      rq.onupgradeneeded = function () { rq.result.createObjectStore("songs", { keyPath: "id", autoIncrement: true }); };
+      rq.onsuccess = function () { res(rq.result); };
+      rq.onerror = function () { rej(rq.error); };
+      rq.onblocked = function () { rej(new Error("blocked")); };
+    });
+  }
+  function idb(mode, fn) {
+    return new Promise(function (res, rej) {
+      var tx = db.transaction("songs", mode), out = fn(tx.objectStore("songs"));
+      tx.oncomplete = function () { res(out && out.result); };
+      tx.onerror = tx.onabort = function () { rej(tx.error); };
+    });
+  }
+  function sortSongs() {
+    songs.sort(function (a, b) { return a.title.localeCompare(b.title, undefined, { sensitivity: "base", numeric: true }); });
+  }
+  function loadLibrary() {
+    return openDB().then(function (d) {
+      db = d;
+      return idb("readonly", function (s) { return s.getAll(); });
+    }).then(function (all) {
+      songs = builtins().concat(all || []); sortSongs();
+    }).catch(function () { db = null; }).then(function () {
+      libraryReady = true; render();
+    });
+  }
+
+  /* ---------- ID3 tag reading (title / artist / album) ---------- */
+  function parseID3(buf) {
+    var b = new Uint8Array(buf), out = {};
+    if (b.length < 10 || b[0] !== 0x49 || b[1] !== 0x44 || b[2] !== 0x33) return out;
+    var ver = b[3];
+    function ss(o) { return (b[o] & 127) << 21 | (b[o + 1] & 127) << 14 | (b[o + 2] & 127) << 7 | (b[o + 3] & 127); }
+    function u32(o) { return ((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]) >>> 0; }
+    var end = Math.min(b.length, 10 + ss(6)), p = 10;
+    if (ver > 2 && (b[5] & 0x40)) p += ver === 4 ? ss(10) : 4 + u32(10);
+    var want = ver === 2 ? { TT2: "title", TP1: "artist", TAL: "album" } : { TIT2: "title", TPE1: "artist", TALB: "album" };
+    var hdr = ver === 2 ? 6 : 10;
+    while (p + hdr <= end) {
+      var id, size;
+      if (ver === 2) { id = String.fromCharCode(b[p], b[p + 1], b[p + 2]); size = b[p + 3] << 16 | b[p + 4] << 8 | b[p + 5]; }
+      else { id = String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]); size = ver === 4 ? ss(p + 4) : u32(p + 4); }
+      if (!/^[A-Z0-9]{3,4}$/.test(id) || size <= 0) break;
+      var st = p + hdr;
+      if (want[id] && st + size <= b.length && size > 1) {
+        var enc = ["iso-8859-1", "utf-16", "utf-16be", "utf-8"][b[st]] || "utf-8";
+        try {
+          var txt = new TextDecoder(enc).decode(b.subarray(st + 1, st + size)).replace(/\0/g, "").trim();
+          if (txt) out[want[id]] = txt;
+        } catch (e) {}
+      }
+      p = st + size;
+    }
+    return out;
+  }
+
+  function addFiles(list) {
+    var files = Array.prototype.filter.call(list, function (f) {
+      return /^audio\//.test(f.type) || /\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(f.name);
+    });
+    if (!files.length) { toast("No audio files picked"); return; }
+    var added = 0, unsaved = 0;
+    var chain = Promise.resolve();
+    files.forEach(function (f, i) {
+      chain = chain.then(function () {
+        toast("Adding " + (i + 1) + " of " + files.length + "…", true);
+        return f.slice(0, 262144).arrayBuffer().then(parseID3, function () { return {}; });
+      }).then(function (tags) {
+        var rec = {
+          title: tags.title || f.name.replace(/\.[^.]+$/, "").replace(/_/g, " "),
+          artist: tags.artist || "", album: tags.album || "", blob: f
+        };
+        var p = db ? idb("readwrite", function (s) { return s.add(rec); }) : Promise.reject();
+        return p.then(function (id) { rec.id = id; }, function () { rec.id = tempId--; unsaved++; })
+          .then(function () { songs.push(rec); added++; });
+      });
+    });
+    chain.then(function () {
+      sortSongs();
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+      toast(unsaved ? "Added " + added + ", but this browser could not save them. They last until you close the page."
+                    : "Added " + added + (added === 1 ? " song" : " songs"));
+      render();
+    });
+  }
+  fileInput.addEventListener("change", function () {
+    if (fileInput.files && fileInput.files.length) addFiles(fileInput.files);
+    fileInput.value = "";
+  });
+  function pickFiles() { fileInput.click(); }
+
+  function removeSong(song) {
+    if (current() === song) stop();
+    unqueue(song);
+    queue = queue.filter(function (s) { return s !== song; });
+    songs = songs.filter(function (s) { return s !== song; });
+    if (song.src) { S.hidden = (S.hidden || []).concat(song.id); saveS(); }
+    else if (db && song.id > 0) idb("readwrite", function (s) { return s.delete(song.id); }).catch(function () {});
+    toast("Removed");
+  }
+
+  /* ---------- playback ---------- */
+  var queue = [], qi = -1, url = null;
+  var upNext = [];          // songs the listener queued to play next, in order
+  function unqueue(s) { upNext = upNext.filter(function (x) { return x !== s; }); }
+  function playQueued() {
+    var s = upNext.shift();
+    for (var i = queue.length - 1; i >= 0; i--) {
+      if (queue[i] === s && i !== qi) { queue.splice(i, 1); if (i < qi) qi--; }
+    }
+    queue.splice(qi + 1, 0, s);
+    playAt(qi + 1);
+  }
+  function toggleQueued(s) {
+    if (upNext.indexOf(s) >= 0) { unqueue(s); toast("Removed from queue"); }
+    else { upNext.push(s); toast("Added to queue"); }
+  }
+  function current() { return qi >= 0 ? queue[qi] : null; }
+  function shuffled(arr, first) {
+    var a = arr.filter(function (s) { return s !== first; });
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return first ? [first].concat(a) : a;
+  }
+  function playAt(i) {
+    if (!queue.length) return;
+    qi = (i + queue.length) % queue.length;
+    var s = queue[qi];
+    if (url) { URL.revokeObjectURL(url); url = null; }
+    if (s.blob) { url = URL.createObjectURL(s.blob); audio.src = url; }
+    else audio.src = s.src;
+    audio.play().catch(function () {});
+    try {
+      if ("mediaSession" in navigator && window.MediaMetadata) {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: s.title, artist: s.artist, album: s.album });
+      }
+    } catch (e) {}
+    render();
+  }
+  function playSong(song) {
+    queue = S.shuffle ? shuffled(songs, song) : songs.slice();
+    playAt(queue.indexOf(song));
+  }
+  function shuffleAll() {
+    if (!songs.length) { toast("No songs yet"); return; }
+    queue = shuffled(songs); playAt(0); push(nowScreen());
+  }
+  function stop() { audio.pause(); audio.removeAttribute("src"); audio.load(); qi = -1; }
+  function next(auto) {
+    if (!current()) return;
+    if (auto && S.repeat === "One") { audio.currentTime = 0; audio.play().catch(function () {}); return; }
+    if (upNext.length) { playQueued(); return; }
+    if (qi + 1 >= queue.length && auto && S.repeat === "Off") { render(); return; }
+    playAt(qi + 1);
+  }
+  function prev() {
+    if (!current()) return;
+    if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+    playAt(qi - 1);
+  }
+  function togglePlay() {
+    if (!current()) {
+      if (!songs.length) { toast("No songs yet"); return; }
+      queue = S.shuffle ? shuffled(songs) : songs.slice();
+      if (upNext.length) { qi = -1; playQueued(); } else playAt(0);
+      return;
+    }
+    if (audio.paused) audio.play().catch(function () {}); else audio.pause();
+  }
+  audio.addEventListener("ended", function () { next(true); });
+  ["play", "pause", "loadedmetadata", "timeupdate"].forEach(function (ev) {
+    audio.addEventListener(ev, function () { if (ev !== "timeupdate" || top().kind === "now") render(); });
+  });
+  audio.addEventListener("error", function () {
+    var s = current();
+    if (!s) return;
+    if (s.src && !s.blob && !s.tried) {   // direct streaming refused: download the file, then play it
+      s.tried = true; toast("Loading…", true);
+      fetch(s.src).then(function (r) { if (!r.ok) throw 0; return r.blob(); }).then(function (b) {
+        s.blob = b; toastMsg = "";
+        if (current() === s) playAt(qi);
+      }).catch(function () { toast("Can't play this file"); });
+      return;
+    }
+    toast("Can't play this file");
+  });
+  try {
+    var ms = navigator.mediaSession;
+    ms.setActionHandler("play", function () { audio.play(); });
+    ms.setActionHandler("pause", function () { audio.pause(); });
+    ms.setActionHandler("nexttrack", function () { next(false); });
+    ms.setActionHandler("previoustrack", prev);
+  } catch (e) {}
+
+  /* ---------- menus ---------- */
+  function menu(title, items, extra) { return Object.assign({ kind: "menu", title: title, items: items, sel: 0, top: 0 }, extra); }
+  function nowScreen() { return { kind: "now", title: "Now Playing" }; }
+
+  function mainItems() {
+    var it = [{ label: "Music", arrow: true, go: function () { push(songMenu()); } }];
+    if (current()) it.push({ label: "Now Playing", arrow: true, go: function () { push(nowScreen()); } });
+    it.push({ label: "Queue", arrow: true, go: function () { push(queueMenu()); } },
+            { label: "Add Songs", go: pickFiles },
+            { label: "Shuffle Songs", go: shuffleAll },
+            { label: "Settings", arrow: true, go: function () { push(settingsMenu()); } },
+            { label: "Backlight", go: function () { S.light = !S.light; saveS(); } });
+    return it;
+  }
+  function songMenu() {
+    return menu("Songs", function () {
+      return songs.map(function (s) {
+        var q = upNext.indexOf(s);
+        return { label: s.title, song: s, value: q >= 0 ? String(q + 1) : "", go: function () { playSong(s); push(nowScreen()); } };
+      });
+    }, { empty: true });
+  }
+  function queueMenu() {
+    return menu("Queue", function () {
+      var it = upNext.map(function (s) {
+        return { label: s.title, go: function () {
+          push(menu(s.title, function () {
+            return [{ label: "Play Now", go: function () {
+                      unqueue(s); upNext.unshift(s); stack.pop();
+                      if (!current()) { queue = songs.slice(); qi = -1; }
+                      playQueued(); push(nowScreen());
+                    } },
+                    { label: "Remove from Queue", go: function () { unqueue(s); back(); } },
+                    { label: "Cancel", go: back }];
+          }));
+        } };
+      });
+      if (it.length) it.push({ label: "Clear Queue", go: function () { upNext = []; } });
+      return it;
+    }, { emptyText: "<b>Queue is empty</b><span>In Songs, press and hold a song (or hold the centre button) to add it.</span>" });
+  }
+  function settingsMenu() {
+    return menu("Settings", function () {
+      return [
+        { label: "Shuffle", value: S.shuffle ? "On" : "Off", go: function () { S.shuffle = !S.shuffle; saveS(); } },
+        { label: "Repeat", value: S.repeat, go: function () { S.repeat = { Off: "One", One: "All", All: "Off" }[S.repeat]; saveS(); } },
+        { label: "Clicker", value: S.clicker ? "On" : "Off", go: function () { S.clicker = !S.clicker; saveS(); } },
+        { label: "Remove Songs", arrow: true, go: function () { push(removeMenu()); } }
+      ];
+    });
+  }
+  function removeMenu() {
+    return menu("Remove", function () {
+      return songs.map(function (s) {
+        return { label: s.title, go: function () {
+          push(menu("Remove song?", function () {
+            return [{ label: "Cancel", go: back },
+                    { label: "Remove", go: function () { removeSong(s); back(); } }];
+          }));
+        } };
+      });
+    }, { empty: true });
+  }
+
+  var stack = [menu("My Music", mainItems)];
+  function top() { return stack[stack.length - 1]; }
+  function push(s) { stack.push(s); render(); }
+  function back() { if (stack.length > 1) stack.pop(); render(); }
+
+  function scroll(dir) {
+    var s = top();
+    if (s.kind === "now") {
+      if (isFinite(audio.duration)) audio.currentTime = Math.max(0, Math.min(audio.duration - 0.25, audio.currentTime + dir * 5));
+      tick(); return;
+    }
+    var n = s.items().length;
+    var ns = Math.max(0, Math.min(n - 1, s.sel + dir));
+    if (ns !== s.sel) { s.sel = ns; tick(); render(); }
+  }
+  function select() {
+    var s = top(); tick();
+    if (s.kind === "now") { togglePlay(); return; }
+    var items = s.items();
+    if (!items.length) { if (s.empty) pickFiles(); return; }
+    items[Math.min(s.sel, items.length - 1)].go();
+    render();
+  }
+
+  /* ---------- drawing the screen ---------- */
+  var toastMsg = "", toastTimer = 0;
+  function toast(msg, sticky) {
+    toastMsg = msg; clearTimeout(toastTimer);
+    if (!sticky) toastTimer = setTimeout(function () { toastMsg = ""; render(); }, 2200);
+    render();
+  }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function fmt(t) { if (!isFinite(t) || t < 0) t = 0; var m = Math.floor(t / 60), s = Math.floor(t % 60); return m + ":" + (s < 10 ? "0" : "") + s; }
+
+  function render() {
+    var s = top(), h = "";
+    var icon = !current() ? "" : audio.paused
+      ? '<svg width="14" height="14" viewBox="0 0 14 14"><rect x="2" y="1" width="4" height="12"/><rect x="8" y="1" width="4" height="12"/></svg>'
+      : '<svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 1v12l11-6z"/></svg>';
+    h += '<div class="bar"><span>' + icon + '</span><span class="ttl">' + esc(s.title) + '</span><span class="batt"><i></i></span></div>';
+
+    if (s.kind === "now") {
+      var c = current();
+      if (!c) { stack.pop(); return render(); }
+      var d = audio.duration, t = audio.currentTime || 0;
+      var pct = isFinite(d) && d > 0 ? Math.min(100, t / d * 100) : 0;
+      h += '<div class="now"><div class="count">' + (qi + 1) + " of " + queue.length + "</div>" +
+        '<div class="t">' + esc(c.title) + '</div><div class="a">' + esc(c.artist || "Unknown artist") + "</div>" +
+        '<div class="a">' + esc(c.album || " ") + "</div>" +
+        '<div class="prog"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+        '<div class="times"><span>' + fmt(t) + "</span><span>-" + fmt(isFinite(d) ? d - t : 0) + "</span></div></div>";
+    } else {
+      var items = s.items(), n = items.length;
+      if (!n && (s.empty || s.emptyText)) {
+        h += '<div class="hint">' + (s.emptyText ? s.emptyText : libraryReady
+          ? "<b>No songs yet</b><span>Press the centre button to add MP3s from this device.</span>"
+          : "<span>Loading…</span>") + "</div>";
+      } else {
+        s.sel = Math.max(0, Math.min(n - 1, s.sel));
+        if (s.sel < s.top) s.top = s.sel;
+        if (s.sel >= s.top + VIS) s.top = s.sel - VIS + 1;
+        s.top = Math.max(0, Math.min(s.top, Math.max(0, n - VIS)));
+        h += '<div class="rows">';
+        for (var i = s.top; i < s.top + VIS; i++) {
+          var it = items[i];
+          if (!it) { h += '<div class="row blank"></div>'; continue; }
+          h += '<div class="row' + (i === s.sel ? " sel" : "") + '" data-i="' + i + '"><span class="lbl">' + esc(it.label) + "</span>" +
+            (it.value ? '<span class="val">' + esc(it.value) + "</span>" : "") + (it.arrow ? '<span class="val">&gt;</span>' : "") + "</div>";
+        }
+        if (n > VIS) h += '<div class="scroll"><i style="top:' + (s.top / n * 100) + "%;height:" + (VIS / n * 100) + '%"></i></div>';
+        h += "</div>";
+      }
+    }
+    if (toastMsg) h += '<div class="toast">' + esc(toastMsg) + "</div>";
+    lcd.classList.toggle("dim", !S.light);
+    lcd.innerHTML = h;
+  }
+
+  // Tapping a row on the screen also works.
+  lcd.addEventListener("click", function (e) {
+    var s = top();
+    if (swiped || s.kind === "now") return;
+    var row = e.target.closest ? e.target.closest(".row[data-i]") : null;
+    if (row) { s.sel = +row.getAttribute("data-i"); select(); }
+    else if (e.target.closest && e.target.closest(".hint") && libraryReady && s.empty) pickFiles();
+  });
+
+  /* ---------- swiping the screen scrolls the list ---------- */
+  function scrollView(dir) {
+    var s = top();
+    if (s.kind !== "menu") return;
+    var n = s.items().length;
+    var nt = Math.max(0, Math.min(Math.max(0, n - VIS), s.top + dir));
+    if (nt !== s.top) { s.sel += nt - s.top; s.top = nt; }
+    else s.sel = Math.max(0, Math.min(n - 1, s.sel + dir));
+    render();
+  }
+  var swipe = null, swiped = false;
+  lcd.addEventListener("pointerdown", function (e) { swiped = false; swipe = { id: e.pointerId, y: e.clientY, acc: 0 }; });
+  window.addEventListener("pointermove", function (e) {
+    if (!swipe || e.pointerId !== swipe.id) return;
+    var rowH = Math.max(18, lcd.clientHeight / (VIS + 1));
+    swipe.acc += swipe.y - e.clientY; swipe.y = e.clientY;
+    while (Math.abs(swipe.acc) >= rowH) {
+      var dir = swipe.acc > 0 ? 1 : -1;
+      swipe.acc -= dir * rowH; swiped = true; scrollView(dir);
+    }
+  });
+  function endSwipe(e) { if (swipe && e.pointerId === swipe.id) swipe = null; }
+  window.addEventListener("pointerup", endSwipe);
+  window.addEventListener("pointercancel", endSwipe);
+  lcd.addEventListener("wheel", function (e) { e.preventDefault(); scrollView(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+
+  /* ---------- click wheel ---------- */
+  var wheel = document.getElementById("wheel");
+  var drag = null, dragged = false;
+  function angleOf(e) {
+    var r = wheel.getBoundingClientRect();
+    return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2));
+  }
+  wheel.addEventListener("pointerdown", function (e) {
+    dragged = false;
+    if (e.target.closest(".b-ok")) { drag = null; return; }
+    drag = { id: e.pointerId, a: angleOf(e), acc: 0 };
+  });
+  window.addEventListener("pointermove", function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var a = angleOf(e), d = a - drag.a;
+    if (d > Math.PI) d -= 2 * Math.PI; else if (d < -Math.PI) d += 2 * Math.PI;
+    drag.a = a; drag.acc += d;
+    var STEP = 0.4;
+    while (Math.abs(drag.acc) >= STEP) {
+      var dir = drag.acc > 0 ? 1 : -1;
+      drag.acc -= dir * STEP; dragged = true; scroll(dir);
+    }
+  });
+  function endDrag(e) { if (drag && e.pointerId === drag.id) drag = null; }
+  window.addEventListener("pointerup", endDrag);
+  window.addEventListener("pointercancel", endDrag);
+
+  function onTap(id, fn) {
+    document.getElementById(id).addEventListener("click", function () { if (!dragged) fn(); });
+  }
+  onTap("btn-menu", function () { tick(); back(); });
+  onTap("btn-prev", function () { tick(); prev(); });
+  onTap("btn-next", function () { tick(); next(false); });
+  onTap("btn-play", function () { tick(); togglePlay(); });
+  onTap("btn-ok", function () { if (!held) select(); });
+
+  /* ---------- press and hold a song: add it to (or take it out of) the queue ---------- */
+  var holdTimer = 0, held = false;
+  function startHold(i) {
+    clearTimeout(holdTimer); held = false;
+    holdTimer = setTimeout(function () {
+      var s = top();
+      if (s.kind !== "menu" || swiped || dragged) return;
+      var it = s.items()[i == null ? s.sel : i];
+      if (!it || !it.song) return;
+      held = true; swiped = true; tick(); toggleQueued(it.song);
+    }, 550);
+  }
+  function cancelHold() { clearTimeout(holdTimer); }
+  document.getElementById("btn-ok").addEventListener("pointerdown", function () { swiped = false; startHold(null); });
+  lcd.addEventListener("pointerdown", function (e) {
+    var row = e.target.closest ? e.target.closest(".row[data-i]") : null;
+    if (row) startHold(+row.getAttribute("data-i"));
+  });
+  window.addEventListener("pointerup", cancelHold);
+  window.addEventListener("pointercancel", cancelHold);
+  document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+  window.addEventListener("keydown", function (e) {
+    var k = e.key;
+    if (k === "ArrowDown") scroll(1);
+    else if (k === "ArrowUp") scroll(-1);
+    else if (k === "Enter" && !(e.target && e.target.tagName === "BUTTON")) select();
+    else if (k === "Escape" || k === "Backspace") back();
+    else if (k === "ArrowRight") next(false);
+    else if (k === "ArrowLeft") prev();
+    else return;
+    e.preventDefault();
+  });
+
+  /* ---------- optional click sound ---------- */
+  var ac = null;
+  function tick() {
+    if (!S.clicker) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === "suspended") ac.resume();
+      var o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+      o.type = "square"; o.frequency.value = 1700;
+      g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.03);
+    } catch (e) {}
+  }
+
+  render();
+  loadLibrary();
+})();
+</script>
+
+<script>
+/* Installed-app extras: offline support. */
+(function () {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("sw.js").catch(function () {});
+})();
+</script>
+</body>
+</html>
