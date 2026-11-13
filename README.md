@@ -1,6 +1,6 @@
 # Pink Mini Player
 
-A retro pink click-wheel music player for your phone. It runs in the browser, installs to your home screen like an app, and plays MP3s you add from your own device.
+A retro iPod-like music player for your phone. It runs in the browser, installs to your home screen like an app, and plays MP3s you add from your own device. 
 
 No music is included. The screenshots show it with a personal library loaded.
 
